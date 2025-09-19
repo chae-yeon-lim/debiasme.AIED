@@ -1,0 +1,1469 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { MapPin, Target, BarChart3, Info, Download, AlertTriangle, X, Plus, MessageSquare, CheckCircle2, Edit, Settings, ChevronRight, Eye } from 'lucide-react';
+
+const DeBiasMe = () => {
+  const [currentView, setCurrentView] = useState('welcome');
+  const [demographics, setDemographics] = useState({
+    country: '',
+    institution: '',
+    institutionType: '',
+    role: '',
+    subjectArea: ''
+  });
+  const [biasMapping, setBiasMapping] = useState({
+    apiProvider: '',
+    taskType: '',
+    recentContext: '',
+    selectedBiases: [],
+    customBiases: [],
+    connections: [],
+    confidenceLevel: 'medium',
+    biasPositions: {} // Store custom positions for draggable nodes
+  });
+  const [showCustomBiasForm, setShowCustomBiasForm] = useState(false);
+  const [newCustomBias, setNewCustomBias] = useState({ name: '', category: 'Human', description: '' });
+  const [selectedForConnection, setSelectedForConnection] = useState(null);
+  const [editingConnection, setEditingConnection] = useState(null);
+  const [draggedBias, setDraggedBias] = useState(null);
+  const canvasRef = useRef(null);
+
+  // Enhanced bias taxonomy with distinct categories
+  const biasTypes = {
+    // Human Biases - Cognitive/Psychological
+    'Confirmation': { 
+      category: 'Human', 
+      description: 'Seeking information that confirms existing beliefs while ignoring contradictory evidence'
+    },
+    'Anchoring': { 
+      category: 'Human', 
+      description: 'Over-relying on first piece of information received'
+    },
+    'Automation': { 
+      category: 'Human', 
+      description: 'Over-trusting AI outputs without critical evaluation'
+    },
+    'Availability': { 
+      category: 'Human', 
+      description: 'Judging probability by easily recalled examples'
+    },
+    'Anthropomorphism': { 
+      category: 'Human', 
+      description: 'Attributing human characteristics to AI systems'
+    },
+    'Overconfidence': { 
+      category: 'Human', 
+      description: 'Overestimating accuracy of beliefs when using AI'
+    },
+
+    // AI System Biases - Technical/Data
+    'Selection': { 
+      category: 'AI (Statistical & Computational)', 
+      description: 'Non-representative sampling in training data'
+    },
+    'Representation': { 
+      category: 'AI (Statistical & Computational)', 
+      description: 'Underrepresentation of certain groups in data'
+    },
+    'Measurement': { 
+      category: 'AI (Statistical & Computational)', 
+      description: 'Systematic errors in data collection processes'
+    },
+    'Temporal': { 
+      category: 'AI (Statistical & Computational)', 
+      description: 'Outdated training data affecting current predictions'
+    },
+    'Language': { 
+      category: 'AI (Statistical & Computational)', 
+      description: 'Favoring dominant languages and dialects'
+    },
+    'Cultural Default': { 
+      category: 'AI (Statistical & Computational)', 
+      description: 'Western/English-centric assumptions in outputs'
+    },
+
+    // Systemic Biases - Structural/Institutional
+    'Historical': { 
+      category: 'Systemic', 
+      description: 'Past inequities encoded in data and perpetuated'
+    },
+    'Institutional': { 
+      category: 'Systemic', 
+      description: 'Organizational structures that create unfair advantages'
+    },
+    'Geographic': { 
+      category: 'Systemic', 
+      description: 'Urban/regional perspective dominance'
+    },
+    'Socioeconomic': { 
+      category: 'Systemic', 
+      description: 'Class-based assumptions and exclusions'
+    },
+    'Gender': { 
+      category: 'Systemic', 
+      description: 'Gender role stereotypes and exclusions'
+    },
+    'Racial': { 
+      category: 'Systemic', 
+      description: 'Racial stereotypes and discrimination patterns'
+    }
+  };
+
+  // Color schemes for distinct categories
+  const categoryConfig = {
+    'Human': {
+      primary: '#10b981', // Emerald green
+      light: '#34d399',
+      bg: 'rgba(16, 185, 129, 0.15)',
+      border: 'rgba(16, 185, 129, 0.3)',
+      selected: 'rgba(16, 185, 129, 0.25)',
+      text: '#065f46'
+    },
+    'AI (Statistical & Computational)': {
+      primary: '#8b5cf6', // Purple
+      light: '#a78bfa',
+      bg: 'rgba(139, 92, 246, 0.15)',
+      border: 'rgba(139, 92, 246, 0.3)',
+      selected: 'rgba(139, 92, 246, 0.25)',
+      text: '#581c87'
+    },
+    'Systemic': {
+      primary: '#f59e0b', // Amber
+      light: '#fbbf24',
+      bg: 'rgba(245, 158, 11, 0.15)',
+      border: 'rgba(245, 158, 11, 0.3)',
+      selected: 'rgba(245, 158, 11, 0.25)',
+      text: '#92400e'
+    }
+  };
+
+  const institutionTypes = ['University', 'Community College', 'K-12 School', 'Research Institute', 'Corporate', 'Government', 'NGO', 'Other'];
+  const roleOptions = ['Student', 'Educator', 'Researcher', 'Administrator', 'Professional', 'Other'];
+  const subjectAreas = ['STEM', 'Social Sciences', 'Humanities', 'Business', 'Arts', 'Medicine', 'Law', 'Interdisciplinary', 'Other'];
+  const apiProviders = ['ChatGPT', 'Claude', 'Gemini', 'Copilot', 'Other'];
+
+  const addCustomBias = () => {
+    if (newCustomBias.name && newCustomBias.description) {
+      setBiasMapping(prev => ({
+        ...prev,
+        customBiases: [...prev.customBiases, { ...newCustomBias, id: Date.now() }]
+      }));
+      setNewCustomBias({ name: '', category: 'Human', description: '' });
+      setShowCustomBiasForm(false);
+    }
+  };
+
+  const toggleBias = (biasName) => {
+    setBiasMapping(prev => ({
+      ...prev,
+      selectedBiases: prev.selectedBiases.includes(biasName)
+        ? prev.selectedBiases.filter(b => b !== biasName)
+        : [...prev.selectedBiases, biasName]
+    }));
+  };
+
+  // Enhanced position generation with drag support
+  const generateBiasPositions = () => {
+    const categories = { 
+      'Human': { x: 200, y: 200 }, 
+      'AI (Statistical & Computational)': { x: 500, y: 200 }, 
+      'Systemic': { x: 350, y: 400 } 
+    };
+    const positions = {};
+    
+    Object.entries(categories).forEach(([category, center]) => {
+      const categoryBiases = biasMapping.selectedBiases.filter(bias => {
+        return biasTypes[bias]?.category === category || 
+               biasMapping.customBiases.find(cb => cb.name === bias)?.category === category;
+      });
+      
+      const radius = Math.max(80, categoryBiases.length * 15);
+      
+      categoryBiases.forEach((bias, index) => {
+        // Use custom position if it exists, otherwise generate default
+        if (biasMapping.biasPositions[bias]) {
+          positions[bias] = {
+            ...biasMapping.biasPositions[bias],
+            category
+          };
+        } else {
+          const angle = (index / Math.max(categoryBiases.length, 1)) * 2 * Math.PI;
+          positions[bias] = {
+            x: center.x + radius * Math.cos(angle),
+            y: center.y + radius * Math.sin(angle),
+            category
+          };
+        }
+      });
+    });
+    
+    return positions;
+  };
+
+  const handleBiasClick = (biasName, event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
+    if (selectedForConnection) {
+      if (selectedForConnection !== biasName) {
+        addConnection(selectedForConnection, biasName);
+      }
+      setSelectedForConnection(null);
+    } else {
+      setSelectedForConnection(biasName);
+    }
+  };
+
+  const addConnection = (bias1, bias2) => {
+    const connectionId = `${bias1}-${bias2}`;
+    const reverseId = `${bias2}-${bias1}`;
+    
+    if (biasMapping.connections.some(conn => conn.id === connectionId || conn.id === reverseId)) {
+      return;
+    }
+    
+    setBiasMapping(prev => ({
+      ...prev,
+      connections: [...prev.connections, { 
+        id: connectionId, 
+        from: bias1, 
+        to: bias2, 
+        annotation: '',
+        confidence: prev.confidenceLevel
+      }]
+    }));
+  };
+
+  const updateAnnotation = (connectionId, annotation, confidence, mitigation = '') => {
+    setBiasMapping(prev => ({
+      ...prev,
+      connections: prev.connections.map(conn => 
+        conn.id === connectionId ? { ...conn, annotation, confidence, mitigation } : conn
+      )
+    }));
+  };
+
+  const removeConnection = (connectionId) => {
+    setBiasMapping(prev => ({
+      ...prev,
+      connections: prev.connections.filter(conn => conn.id !== connectionId)
+    }));
+  };
+
+  // Drag handling for bias nodes
+  const handleMouseDown = (biasName, event) => {
+    event.preventDefault();
+    setDraggedBias(biasName);
+  };
+
+  const handleMouseMove = (event) => {
+    if (!draggedBias) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    setBiasMapping(prev => ({
+      ...prev,
+      biasPositions: {
+        ...prev.biasPositions,
+        [draggedBias]: { x, y }
+      }
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setDraggedBias(null);
+  };
+
+  useEffect(() => {
+    if (draggedBias) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [draggedBias]);
+
+  const WelcomeView = () => (
+    <div className="max-w-4xl mx-auto space-y-8">
+      <div className="text-center">
+        <h2 className="text-5xl font-bold text-slate-100 mb-4">DeBiasMe</h2>
+        <p className="text-blue-300 text-xl mb-2">
+          Interactive Bias Mapping Tool
+        </p>
+        <p className="text-slate-400 text-lg mb-6">
+          For AIED Governance & Policy Development
+        </p>
+        <div className="w-32 h-1 bg-blue-500 rounded-full mx-auto"></div>
+      </div>
+
+      <div style={{ backgroundColor: 'var(--color-surface)' }} className="p-8 rounded-2xl border border-slate-600">
+        <p className="text-slate-300 mb-8 leading-relaxed text-lg">
+          This tool helps map how your thinking patterns interact with AI's limitations - and how together, 
+          they can amplify biases. By understanding these connections, you contribute to creating more 
+          equitable AI systems for educational and institutional use.
+        </p>
+        
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-600 mb-8">
+          <div className="font-semibold text-blue-300 mb-4 text-lg">How It Works</div>
+          <div className="space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
+              <div>
+                <div className="font-medium text-slate-200 mb-1">Think of your recent AI use</div>
+                <div className="text-sm text-slate-400">Reflect on a specific time you used AI tools. What were you trying to accomplish and what influenced your interaction?</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">2</div>
+              <div>
+                <div className="font-medium text-slate-200 mb-1">Select bias types you experienced</div>
+                <div className="text-sm text-slate-400">Choose from human, AI, and systemic bias types that might have shaped how you and the AI interacted.</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">3</div>
+              <div>
+                <div className="font-medium text-slate-200 mb-1">Map how biases connect and amplify</div>
+                <div className="text-sm text-slate-400">Click on different bias types to connect them and describe how they reinforced each other in your experience.</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">4</div>
+              <div>
+                <div className="font-medium text-slate-200 mb-1">Share your insights</div>
+                <div className="text-sm text-slate-400">Export your findings to help researchers understand how human-AI bias interactions work in real situations.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-blue-500/20 border border-blue-500/30 p-4 rounded-xl mb-6">
+          <h4 className="font-semibold text-blue-300 mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Data Contribution
+          </h4>
+          <p className="text-blue-100 text-sm mb-3">
+            Your analysis contributes to open-source bias research. This data can be used for:
+          </p>
+          <ul className="text-blue-100 text-sm space-y-1 list-disc list-inside ml-4">
+            <li>Institutional bias pattern analysis</li>
+            <li>Educational policy development</li>
+            <li>Research on human-AI interaction</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Enhanced Demographics Form */}
+      <div style={{ backgroundColor: 'var(--color-surface)' }} className="p-8 rounded-2xl border border-slate-600">
+        <h4 className="font-semibold text-slate-100 mb-6 text-xl flex items-center gap-3">
+          <Info className="h-6 w-6 text-blue-400" />
+          Context Information
+        </h4>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Institution Name</label>
+            <input
+              type="text"
+              className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100 placeholder-slate-400"
+              placeholder="Name of your school/organization"
+              value={demographics.institution}
+              onChange={(e) => setDemographics(prev => ({...prev, institution: e.target.value}))}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Institution Type</label>
+            <select
+              className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100"
+              value={demographics.institutionType}
+              onChange={(e) => setDemographics(prev => ({...prev, institutionType: e.target.value}))}
+            >
+              <option value="">Select type</option>
+              {institutionTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Country/Region</label>
+            <input
+              type="text"
+              className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100 placeholder-slate-400"
+              placeholder="e.g., United States, Germany"
+              value={demographics.country}
+              onChange={(e) => setDemographics(prev => ({...prev, country: e.target.value}))}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Role</label>
+            <select
+              className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100"
+              value={demographics.role}
+              onChange={(e) => setDemographics(prev => ({...prev, role: e.target.value}))}
+            >
+              <option value="">Select role</option>
+              {roleOptions.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        {(demographics.role === 'Student' || demographics.role === 'Educator' || demographics.role === 'Researcher') && (
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-slate-300 mb-3">Subject Area</label>
+            <select
+              className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100"
+              value={demographics.subjectArea}
+              onChange={(e) => setDemographics(prev => ({...prev, subjectArea: e.target.value}))}
+            >
+              <option value="">Select subject area</option>
+              {subjectAreas.map(area => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        
+        <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl">
+          <p className="text-xs text-blue-200">
+            <span className="font-medium">Privacy:</span> All data is anonymized and used exclusively for research and institutional bias analysis.
+          </p>
+        </div>
+      </div>
+
+      <div className="text-center">
+        <button
+          onClick={() => setCurrentView('setup')}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-5 px-10 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all text-lg"
+        >
+          <span className="flex items-center gap-3">
+            <Settings className="h-6 w-6" />
+            Start Bias Mapping
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+
+  const BiasSetupView = () => (
+    <div className="space-y-8">
+      <div className="bg-blue-500/20 border border-blue-500/30 p-6 rounded-2xl">
+        <h3 className="font-semibold text-blue-300 mb-3 text-xl flex items-center gap-2">
+          <Settings className="h-6 w-6" />
+          Configure Bias Detection Parameters
+        </h3>
+        <p className="text-blue-200">
+          Set up your AI interaction context and select bias types for mapping analysis.
+        </p>
+      </div>
+
+      {/* Context Configuration */}
+      <div style={{ backgroundColor: 'var(--color-surface)' }} className="border border-slate-600 rounded-2xl p-8">
+        <h4 className="font-semibold mb-6 text-slate-100 text-lg flex items-center gap-2">
+          <Target className="h-5 w-5 text-blue-400" />
+          Interaction Context
+        </h4>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">AI Tool Used</label>
+            <select
+              className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100"
+              value={biasMapping.apiProvider}
+              onChange={(e) => setBiasMapping(prev => ({...prev, apiProvider: e.target.value}))}
+            >
+              <option value="">Select AI tool</option>
+              {apiProviders.map(provider => (
+                <option key={provider} value={provider}>{provider}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Task Type</label>
+            <input
+              type="text"
+              className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100 placeholder-slate-400"
+              placeholder="e.g., Research, Writing, Analysis"
+              value={biasMapping.taskType}
+              onChange={(e) => setBiasMapping(prev => ({...prev, taskType: e.target.value}))}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-3">Context Description</label>
+          <textarea
+            className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl h-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100 placeholder-slate-400"
+            placeholder="Describe what you were trying to accomplish with AI..."
+            value={biasMapping.recentContext}
+            onChange={(e) => setBiasMapping(prev => ({...prev, recentContext: e.target.value}))}
+          />
+        </div>
+      </div>
+
+      <div className="text-center">
+        <button
+          onClick={() => setCurrentView('mapping')}
+          disabled={!biasMapping.apiProvider}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-4 px-8 rounded-2xl font-semibold shadow-lg hover:shadow-xl disabled:bg-slate-600 disabled:cursor-not-allowed transition-all"
+        >
+          <span className="flex items-center gap-2">
+            <ChevronRight className="h-5 w-5" />
+            Continue to Bias Selection
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+
+  const BiasSelectionGrid = ({ category }) => {
+    const categoryBiases = Object.entries(biasTypes).filter(([_, info]) => info.category === category);
+    const customCategoryBiases = biasMapping.customBiases.filter(bias => bias.category === category);
+    const config = categoryConfig[category];
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold text-slate-100 text-lg flex items-center gap-3">
+            <div 
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: config.primary }}
+            />
+            {category} Biases ({categoryBiases.length + customCategoryBiases.length})
+          </h4>
+          <button
+            onClick={() => {
+              setNewCustomBias(prev => ({...prev, category}));
+              setShowCustomBiasForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-xl transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            Add Custom
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {categoryBiases.map(([biasName, info]) => (
+            <div
+              key={biasName}
+              className={`p-5 rounded-xl cursor-pointer transition-all border ${
+                biasMapping.selectedBiases.includes(biasName)
+                  ? `border-2`
+                  : `border hover:shadow-lg`
+              }`}
+              style={{
+                backgroundColor: biasMapping.selectedBiases.includes(biasName) 
+                  ? config.selected 
+                  : config.bg,
+                borderColor: biasMapping.selectedBiases.includes(biasName) 
+                  ? config.primary 
+                  : config.border
+              }}
+              onClick={() => toggleBias(biasName)}
+            >
+              <div className="flex items-start gap-4">
+                <div className={`mt-1 w-6 h-6 rounded-lg border-2 flex items-center justify-center ${
+                  biasMapping.selectedBiases.includes(biasName)
+                    ? 'border-2'
+                    : 'border-2 bg-slate-800'
+                }`}
+                style={{
+                  backgroundColor: biasMapping.selectedBiases.includes(biasName) ? config.primary : 'transparent',
+                  borderColor: biasMapping.selectedBiases.includes(biasName) ? config.primary : config.border
+                }}>
+                  {biasMapping.selectedBiases.includes(biasName) && (
+                    <CheckCircle2 className="h-4 w-4 text-white" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-slate-100 mb-2">{biasName}</div>
+                  <div className="text-sm text-slate-300">{info.description}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {customCategoryBiases.map((bias) => (
+            <div
+              key={bias.id}
+              className={`p-5 rounded-xl cursor-pointer transition-all border-2 ${
+                biasMapping.selectedBiases.includes(bias.name)
+                  ? 'border-emerald-500 bg-emerald-500/20'
+                  : 'border-emerald-400/50 bg-emerald-500/10 hover:shadow-lg'
+              }`}
+              onClick={() => toggleBias(bias.name)}
+            >
+              <div className="flex items-start gap-4">
+                <div className={`mt-1 w-6 h-6 rounded-lg border-2 flex items-center justify-center ${
+                  biasMapping.selectedBiases.includes(bias.name)
+                    ? 'bg-emerald-500 border-emerald-500'
+                    : 'border-emerald-400 bg-slate-800'
+                }`}>
+                  {biasMapping.selectedBiases.includes(bias.name) && (
+                    <CheckCircle2 className="h-4 w-4 text-white" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-slate-100 mb-1">{bias.name}</div>
+                  <div className="text-xs text-emerald-300 font-medium mb-2">Custom</div>
+                  <div className="text-sm text-slate-300">{bias.description}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const MappingView = () => (
+    <div className="space-y-8">
+      <div className="bg-blue-500/20 border border-blue-500/30 p-6 rounded-2xl">
+        <h3 className="font-semibold text-blue-300 mb-3 text-xl flex items-center gap-2">
+          <MapPin className="h-6 w-6" />
+          Choose Bias Types
+        </h3>
+        <p className="text-blue-200">
+          Look through different types of bias that can happen when using AI. Select the ones you think affected when you used AI.
+        </p>
+      </div>
+
+      {/* Bias Selection */}
+      <div className="space-y-10">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold text-slate-100 text-xl">Bias Taxonomy</h4>
+          <div className="bg-blue-600/20 border border-blue-600/30 px-6 py-3 rounded-xl">
+            <span className="text-blue-300 font-medium">
+              Selected: {biasMapping.selectedBiases.length} biases
+            </span>
+          </div>
+        </div>
+        
+        <BiasSelectionGrid category="Human" />
+        <div className="text-sm text-blue-300 mb-8 pl-4 border-l-2 border-blue-500">
+          <strong>Human:</strong> How you influenced the AI
+        </div>
+        
+        <BiasSelectionGrid category="AI (Statistical & Computational)" />
+        <div className="text-sm text-blue-300 mb-8 pl-4 border-l-2 border-blue-500">
+          <strong>AI (Statistical & Computational):</strong> Patterns in AI's response
+        </div>
+        
+        <BiasSelectionGrid category="Systemic" />
+        <div className="text-sm text-blue-300 mb-8 pl-4 border-l-2 border-blue-500">
+          <strong>Systemic:</strong> Systemic biases reinforced
+        </div>
+      </div>
+
+      {/* Custom Bias Modal */}
+      {showCustomBiasForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div style={{ backgroundColor: 'var(--color-surface)' }} className="rounded-2xl p-8 max-w-md w-full border border-slate-600">
+            <h4 className="font-semibold mb-6 text-slate-100 text-xl">Add Custom Bias Type</h4>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Bias Name</label>
+                <input
+                  type="text"
+                  className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100"
+                  value={newCustomBias.name}
+                  onChange={(e) => setNewCustomBias(prev => ({...prev, name: e.target.value}))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Category</label>
+                <select
+                  className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100"
+                  value={newCustomBias.category}
+                  onChange={(e) => setNewCustomBias(prev => ({...prev, category: e.target.value}))}
+                >
+                  {['Human', 'AI (Statistical & Computational)', 'Systemic'].map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                <textarea
+                  className="w-full p-4 bg-slate-700 border border-slate-600 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100"
+                  value={newCustomBias.description}
+                  onChange={(e) => setNewCustomBias(prev => ({...prev, description: e.target.value}))}
+                />
+              </div>
+            </div>
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={addCustomBias}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-4 px-6 rounded-xl font-semibold transition-all"
+              >
+                Add Bias
+              </button>
+              <button
+                onClick={() => setShowCustomBiasForm(false)}
+                className="px-6 py-4 border border-slate-600 rounded-xl hover:bg-slate-700 text-slate-300 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="text-center">
+        <button
+          onClick={() => setCurrentView('analysis')}
+          disabled={biasMapping.selectedBiases.length === 0}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-5 px-10 rounded-2xl font-semibold shadow-lg hover:shadow-xl disabled:bg-slate-600 disabled:cursor-not-allowed transition-all text-lg"
+        >
+          <span className="flex items-center gap-3">
+            <Target className="h-6 w-6" />
+            Build Connections ({biasMapping.selectedBiases.length})
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+
+  const InteractiveBiasCanvas = () => {
+    const positions = generateBiasPositions();
+
+    return (
+      <div className="space-y-8">
+        <div className="bg-purple-500/20 border border-purple-500/30 p-6 rounded-2xl">
+          <h3 className="font-semibold text-purple-300 mb-3 text-xl flex items-center gap-2">
+            <Target className="h-6 w-6" />
+            Interactive Bias Network
+          </h3>
+          <p className="text-purple-200">
+            Drag bias nodes within their category circles. Click to create connections and add annotations.
+          </p>
+        </div>
+
+        {/* Confidence Level Setting */}
+        <div style={{ backgroundColor: 'var(--color-surface)' }} className="p-6 rounded-xl border border-slate-600">
+          <div className="flex items-center gap-8">
+            <label className="text-slate-300 font-medium">Connection Confidence:</label>
+            <div className="flex gap-6">
+              {['low', 'medium', 'high'].map(level => (
+                <label key={level} className="flex items-center gap-3 text-slate-300 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="confidence"
+                    value={level}
+                    checked={biasMapping.confidenceLevel === level}
+                    onChange={(e) => setBiasMapping(prev => ({...prev, confidenceLevel: e.target.value}))}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="capitalize font-medium">{level}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Network Canvas */}
+        <div 
+          ref={canvasRef}
+          className="relative bg-slate-900 rounded-2xl border-2 border-blue-500/50" 
+          style={{ height: '700px' }}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        >
+          {/* Category circles with enhanced styling */}
+          {Object.entries({ 
+            'Human': { x: 200, y: 200 }, 
+            'AI (Statistical & Computational)': { x: 500, y: 200 }, 
+            'Systemic': { x: 350, y: 400 } 
+          }).map(([category, center]) => {
+            const categoryBiases = biasMapping.selectedBiases.filter(bias => {
+              return biasTypes[bias]?.category === category || 
+                     biasMapping.customBiases.find(cb => cb.name === bias)?.category === category;
+            });
+            
+            if (categoryBiases.length === 0) return null;
+            
+            const radius = Math.max(100, categoryBiases.length * 18);
+            const config = categoryConfig[category];
+            
+            return (
+              <div key={category}>
+                <div
+                  className="absolute rounded-full border-2"
+                  style={{
+                    left: center.x - radius,
+                    top: center.y - radius,
+                    width: radius * 2,
+                    height: radius * 2,
+                    backgroundColor: config.bg,
+                    borderColor: config.border,
+                    boxShadow: `0 0 20px ${config.primary}40`
+                  }}
+                />
+                <div
+                  className="absolute text-slate-100 font-bold text-lg"
+                  style={{
+                    left: center.x - 60,
+                    top: center.y - radius - 35,
+                    color: config.light
+                  }}
+                >
+                  {category}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Connection lines with enhanced styling */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+            <defs>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge> 
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            {biasMapping.connections.map((connection) => {
+              const fromPos = positions[connection.from];
+              const toPos = positions[connection.to];
+              
+              if (!fromPos || !toPos) {
+                console.log('Missing position for connection:', connection.from, connection.to, fromPos, toPos);
+                return null;
+              }
+              
+              const confidenceColors = {
+                high: '#3b82f6',
+                medium: '#60a5fa', 
+                low: '#93c5fd'
+              };
+              
+              return (
+                <g key={connection.id}>
+                  <line
+                    x1={fromPos.x}
+                    y1={fromPos.y}
+                    x2={toPos.x}
+                    y2={toPos.y}
+                    stroke={confidenceColors[connection.confidence] || '#60a5fa'}
+                    strokeWidth={connection.annotation ? 4 : 3}
+                    strokeDasharray={connection.annotation ? "0" : "8,4"}
+                    opacity="0.9"
+                    filter="url(#glow)"
+                  />
+                  <circle
+                    cx={(fromPos.x + toPos.x) / 2}
+                    cy={(fromPos.y + toPos.y) / 2}
+                    r="12"
+                    fill={connection.annotation ? "#10b981" : "#f59e0b"}
+                    className="cursor-pointer"
+                    style={{ pointerEvents: 'auto', zIndex: 10 }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingConnection(connection);
+                    }}
+                  />
+                  {connection.annotation ? (
+                    <foreignObject 
+                      x={(fromPos.x + toPos.x) / 2 - 10} 
+                      y={(fromPos.y + toPos.y) / 2 - 10}
+                      width="20" 
+                      height="20"
+                      className="pointer-events-none"
+                    >
+                      <MessageSquare className="h-5 w-5 text-white" />
+                    </foreignObject>
+                  ) : (
+                    <foreignObject 
+                      x={(fromPos.x + toPos.x) / 2 - 10} 
+                      y={(fromPos.y + toPos.y) / 2 - 10}
+                      width="20" 
+                      height="20"
+                      className="pointer-events-none"
+                    >
+                      <Edit className="h-5 w-5 text-white" />
+                    </foreignObject>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Enhanced bias nodes - simplified for connection only */}
+          {Object.entries(positions).map(([biasName, pos]) => {
+            const isSelected = selectedForConnection === biasName;
+            const category = pos.category;
+            const config = categoryConfig[category];
+            
+            return (
+              <div
+                key={biasName}
+                className={`absolute w-24 h-24 rounded-full border-3 cursor-pointer transition-all flex items-center justify-center text-center select-none ${
+                  isSelected 
+                    ? 'border-yellow-400 bg-yellow-200 shadow-2xl scale-110 z-20' 
+                    : `border-white shadow-lg hover:scale-105 z-10`
+                }`}
+                style={{ 
+                  left: pos.x - 48, 
+                  top: pos.y - 48,
+                  backgroundColor: isSelected ? '#fef3c7' : config.primary,
+                  borderColor: isSelected ? '#fbbf24' : 'white',
+                  boxShadow: isSelected 
+                    ? '0 0 30px rgba(251, 191, 36, 0.6)' 
+                    : `0 0 15px ${config.primary}60`
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleBiasClick(biasName, e);
+                }}
+              >
+                <span className={`font-bold text-xs leading-tight ${
+                  isSelected ? 'text-slate-800' : 'text-white'
+                }`}>
+                  {biasName.length > 14 ? biasName.substring(0, 14) + '...' : biasName}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {selectedForConnection && (
+          <div className="bg-yellow-500/20 border border-yellow-500/30 p-4 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="text-yellow-300 font-semibold text-lg">
+                Selected: {selectedForConnection}
+              </span>
+              <button
+                onClick={() => setSelectedForConnection(null)}
+                className="text-yellow-400 hover:text-yellow-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-yellow-200 mt-2">Click another bias node to create a connection.</p>
+          </div>
+        )}
+
+        {/* Enhanced connection editing modal */}
+        {editingConnection && (
+          <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50">
+            <div style={{ backgroundColor: 'var(--color-surface)' }} className="rounded-2xl p-10 max-w-2xl w-full shadow-2xl border border-slate-600">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <MessageSquare className="h-6 w-6 text-white" />
+                </div>
+                <h4 className="font-semibold text-slate-100 text-2xl">Annotate Connection</h4>
+              </div>
+              
+              <div className="bg-blue-500/20 border border-blue-500/30 p-6 rounded-xl mb-8">
+                <p className="text-slate-200 text-lg">
+                  <span className="font-bold text-blue-300">{editingConnection.from}</span>
+                  <span className="mx-4 text-slate-400">↔</span>
+                  <span className="font-bold text-cyan-300">{editingConnection.to}</span>
+                </p>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-4">Connection Strength</label>
+                  <div className="flex gap-6">
+                    {['low', 'medium', 'high'].map(level => (
+                      <label key={level} className="flex items-center gap-3 text-slate-300 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="editConfidence"
+                          value={level}
+                          checked={editingConnection.confidence === level}
+                          onChange={(e) => setEditingConnection({...editingConnection, confidence: e.target.value})}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="capitalize font-medium">{level}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-slate-300 font-medium mb-3">Amplification Pattern</label>
+                  <textarea
+                    className="w-full p-5 bg-slate-700 border border-slate-600 rounded-xl h-32 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-slate-100 placeholder-slate-400"
+                    placeholder="Describe how these biases amplify each other in your AI interaction. What patterns did you observe?"
+                    value={editingConnection.annotation}
+                    onChange={(e) => setEditingConnection({...editingConnection, annotation: e.target.value})}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-slate-300 font-medium mb-3">Mitigation Strategies</label>
+                  <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="font-semibold text-blue-300 mb-2">Check Your Sources</div>
+                        <ul className="text-slate-300 space-y-1 text-xs">
+                          <li>• Ask AI where it got its info</li>
+                          <li>• Compare different answers</li>
+                          <li>• Test with different examples</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-emerald-300 mb-2">Protect Your Data</div>
+                        <ul className="text-slate-300 space-y-1 text-xs">
+                          <li>• Keep personal details out</li>
+                          <li>• Know how AI stores data</li>
+                          <li>• Use privacy settings</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-purple-300 mb-2">Know Your Rights</div>
+                        <ul className="text-slate-300 space-y-1 text-xs">
+                          <li>• You can question AI answers</li>
+                          <li>• Report biased responses</li>
+                          <li>• Push for better AI</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                  <textarea
+                    className="w-full p-5 bg-slate-700 border border-slate-600 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-slate-100 placeholder-slate-400"
+                    placeholder="What specific strategies would you use to reduce these biases in future AI interactions?"
+                    value={editingConnection.mitigation || ''}
+                    onChange={(e) => setEditingConnection({...editingConnection, mitigation: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-4 mt-10">
+                <button
+                  onClick={() => {
+                    updateAnnotation(editingConnection.id, editingConnection.annotation, editingConnection.confidence, editingConnection.mitigation);
+                    setEditingConnection(null);
+                  }}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-4 px-6 rounded-xl font-bold transition-all flex items-center justify-center gap-3"
+                >
+                  <CheckCircle2 className="h-5 w-5" />
+                  Save Annotation
+                </button>
+                <button
+                  onClick={() => {
+                    removeConnection(editingConnection.id);
+                    setEditingConnection(null);
+                  }}
+                  className="px-6 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-all"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setEditingConnection(null)}
+                  className="px-6 py-4 border border-slate-600 rounded-xl hover:bg-slate-700 text-slate-300 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced statistics dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-emerald-500/20 border border-emerald-500/30 p-6 rounded-xl">
+            <div className="font-bold text-emerald-300 mb-2 text-lg">Bias Nodes</div>
+            <div className="text-3xl font-bold text-emerald-400">{biasMapping.selectedBiases.length}</div>
+          </div>
+          <div className="bg-blue-500/20 border border-blue-500/30 p-6 rounded-xl">
+            <div className="font-bold text-blue-300 mb-2 text-lg">Connections</div>
+            <div className="text-3xl font-bold text-blue-400">{biasMapping.connections.length}</div>
+          </div>
+          <div className="bg-amber-500/20 border border-amber-500/30 p-6 rounded-xl">
+            <div className="font-bold text-amber-300 mb-2 text-lg">Annotated</div>
+            <div className="text-3xl font-bold text-amber-400">{biasMapping.connections.filter(c => c.annotation).length}</div>
+          </div>
+          <div className="bg-purple-500/20 border border-purple-500/30 p-6 rounded-xl">
+            <div className="font-bold text-purple-300 mb-2 text-lg">Categories</div>
+            <div className="text-3xl font-bold text-purple-400">
+              {new Set(biasMapping.selectedBiases.map(bias => 
+                biasTypes[bias]?.category || biasMapping.customBiases.find(cb => cb.name === bias)?.category
+              )).size}
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced network summary */}
+        <div style={{ backgroundColor: 'var(--color-surface)' }} className="p-8 rounded-2xl border border-slate-600">
+          <h5 className="font-semibold mb-6 text-slate-100 text-xl">Your Connections</h5>
+          {biasMapping.connections.length === 0 ? (
+            <p className="text-slate-400">No connections made yet. Click on bias circles to connect them and explain how they work together. You can also drag them around to organize your view.</p>
+          ) : (
+            <div className="space-y-4">
+              {biasMapping.connections.map((conn) => (
+                <div key={conn.id} className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="font-semibold text-slate-100">{conn.from} ↔ {conn.to}</div>
+                    <div className="flex items-center gap-3">
+                      <div className={`px-4 py-2 rounded-lg text-sm font-bold ${
+                        conn.confidence === 'high' ? 'bg-blue-600 text-white' :
+                        conn.confidence === 'medium' ? 'bg-blue-500 text-white' :
+                        'bg-blue-400 text-slate-900'
+                      }`}>
+                        {conn.confidence} confidence
+                      </div>
+                      {conn.annotation && (
+                        <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                      )}
+                    </div>
+                  </div>
+                  {conn.annotation && (
+                    <div className="text-sm text-slate-300 bg-slate-700 p-4 rounded-lg border-l-4 border-emerald-500">
+                      <div className="mb-3">
+                        <strong className="text-emerald-300">Pattern:</strong>
+                        <div className="italic mt-1">"{conn.annotation}"</div>
+                      </div>
+                      {conn.mitigation && (
+                        <div>
+                          <strong className="text-blue-300">Mitigation:</strong>
+                          <div className="italic mt-1">"{conn.mitigation}"</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="text-center">
+          <button
+            onClick={() => setCurrentView('audit')}
+            className="bg-blue-600 hover:bg-blue-700 text-white py-5 px-10 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all text-lg"
+          >
+            <span className="flex items-center gap-3">
+              <BarChart3 className="h-6 w-6" />
+              View Results Dashboard
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const AuditView = () => {
+    const institutionalData = {
+      totalMappings: 847,
+      institutions: 52,
+      countries: 24,
+      commonPatterns: [
+        { pattern: 'Confirmation → Historical', frequency: 203, risk: 'High', confidence: 'High' },
+        { pattern: 'Automation → Selection', frequency: 156, risk: 'High', confidence: 'Medium' },
+        { pattern: 'Anchoring → Representation', frequency: 134, risk: 'Medium', confidence: 'High' },
+        { pattern: 'Overconfidence → Cultural Default', frequency: 98, risk: 'Medium', confidence: 'Medium' }
+      ]
+    };
+
+    const exportData = () => {
+      const data = {
+        timestamp: new Date().toISOString(),
+        demographics: demographics,
+        context: {
+          apiProvider: biasMapping.apiProvider,
+          taskType: biasMapping.taskType,
+          description: biasMapping.recentContext
+        },
+        biases: {
+          selected: biasMapping.selectedBiases,
+          custom: biasMapping.customBiases,
+          connections: biasMapping.connections.map(conn => ({
+            from: conn.from,
+            to: conn.to,
+            confidence: conn.confidence,
+            annotation: conn.annotation || null
+          })),
+          positions: biasMapping.biasPositions,
+          counts: {
+            human: biasMapping.selectedBiases.filter(b => 
+              biasTypes[b]?.category === 'Human' || 
+              biasMapping.customBiases.find(cb => cb.name === b)?.category === 'Human'
+            ).length,
+            ai: biasMapping.selectedBiases.filter(b => 
+              biasTypes[b]?.category === 'AI' || 
+              biasMapping.customBiases.find(cb => cb.name === b)?.category === 'AI'
+            ).length,
+            systemic: biasMapping.selectedBiases.filter(b => 
+              biasTypes[b]?.category === 'Systemic' || 
+              biasMapping.customBiases.find(cb => cb.name === b)?.category === 'Systemic'
+            ).length
+          }
+        },
+        metadata: {
+          version: '3.0',
+          sessionId: Date.now(),
+          tool: 'DeBiasMe Interactive Mapping'
+        }
+      };
+      
+      const dataStr = JSON.stringify(data, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `debiasme-mapping-${Date.now()}.json`;
+      link.click();
+    };
+
+    return (
+      <div className="space-y-8">
+        <div className="bg-teal-500/20 border border-teal-500/30 p-6 rounded-2xl">
+          <h3 className="font-semibold text-teal-300 mb-3 text-xl flex items-center gap-2">
+            <BarChart3 className="h-6 w-6" />
+            Policy Analytics Dashboard
+          </h3>
+          <p className="text-teal-200">
+            Aggregated bias mapping data for institutional decision-making and evidence-based AI governance.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6">
+            <div className="text-3xl font-bold text-blue-400">{institutionalData.totalMappings}</div>
+            <div className="text-blue-300 font-medium">Bias Maps</div>
+          </div>
+          <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-6">
+            <div className="text-3xl font-bold text-emerald-400">{institutionalData.institutions}</div>
+            <div className="text-emerald-300 font-medium">Institutions</div>
+          </div>
+          <div className="bg-purple-500/20 border border-purple-500/30 rounded-xl p-6">
+            <div className="text-3xl font-bold text-purple-400">{biasMapping.connections.length}</div>
+            <div className="text-purple-300 font-medium">Your Network</div>
+          </div>
+          <div className="bg-amber-500/20 border border-amber-500/30 rounded-xl p-6">
+            <div className="text-3xl font-bold text-amber-400">{biasMapping.connections.filter(c => c.annotation).length}</div>
+            <div className="text-amber-300 font-medium">Annotations</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div style={{ backgroundColor: 'var(--color-surface)' }} className="border border-slate-600 rounded-2xl p-8">
+            <h4 className="font-semibold mb-6 text-slate-100 text-lg">Common Connection Patterns</h4>
+            <div className="space-y-5">
+              {institutionalData.commonPatterns.map((pattern, index) => (
+                <div key={index} className="border border-slate-700 rounded-xl p-5 bg-slate-800">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="font-semibold text-slate-100">{pattern.pattern}</div>
+                    <div className="flex gap-3">
+                      <div className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                        pattern.risk === 'High' ? 'bg-red-500 text-white' : 'bg-yellow-500 text-slate-900'
+                      }`}>
+                        {pattern.risk}
+                      </div>
+                      <div className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold">
+                        {pattern.confidence}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-slate-400">
+                    <strong>Frequency:</strong> {pattern.frequency} mappings ({Math.round(pattern.frequency / institutionalData.totalMappings * 100)}%)
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: 'var(--color-surface)' }} className="border border-slate-600 rounded-2xl p-8">
+            <h4 className="font-semibold mb-6 text-slate-100 text-lg">Your Mapping Profile</h4>
+            <div className="space-y-4 text-slate-300">
+              {demographics.institution && (
+                <div className="flex justify-between">
+                  <strong>Institution:</strong> 
+                  <span className="text-slate-100">{demographics.institution}</span>
+                </div>
+              )}
+              {demographics.institutionType && (
+                <div className="flex justify-between">
+                  <strong>Type:</strong> 
+                  <span className="text-slate-100">{demographics.institutionType}</span>
+                </div>
+              )}
+              {demographics.country && (
+                <div className="flex justify-between">
+                  <strong>Location:</strong> 
+                  <span className="text-slate-100">{demographics.country}</span>
+                </div>
+              )}
+              {demographics.role && (
+                <div className="flex justify-between">
+                  <strong>Role:</strong> 
+                  <span className="text-slate-100">{demographics.role}</span>
+                </div>
+              )}
+              <div className="border-t border-slate-600 pt-4 mt-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-slate-800 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-400">{biasMapping.selectedBiases.length}</div>
+                    <div className="text-xs text-slate-400">Bias Types</div>
+                  </div>
+                  <div className="text-center p-3 bg-slate-800 rounded-lg">
+                    <div className="text-2xl font-bold text-emerald-400">{biasMapping.connections.length}</div>
+                    <div className="text-xs text-slate-400">Connections</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-blue-500/20 border border-blue-500/30 rounded-2xl p-8">
+          <div className="flex items-start gap-4">
+            <Info className="h-8 w-8 text-blue-400 mt-1 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold text-blue-300 mb-4 text-lg">Expert Review</h4>
+              <p className="text-blue-200">
+                Institutional experts will review aggregated data to identify patterns and inform policy decisions.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'var(--color-surface)' }} className="p-8 rounded-2xl border border-slate-600">
+          <h4 className="font-semibold text-slate-100 mb-6 text-xl flex items-center gap-3">
+            <Download className="h-6 w-6 text-blue-400" />
+            Data Export
+          </h4>
+          <p className="text-slate-300 mb-8 text-lg leading-relaxed">
+            Your anonymized bias mapping contributes to institutional AI governance research. 
+            Export includes bias connections, confidence levels, spatial arrangements, and demographic context for policy analysis.
+          </p>
+          
+          <div className="flex gap-6">
+            <button
+              onClick={exportData}
+              className="bg-blue-600 hover:bg-blue-700 text-white py-4 px-8 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-3"
+            >
+              <Download className="h-5 w-5" />
+              Export Bias Map
+            </button>
+            <button
+              onClick={() => {
+                setBiasMapping({
+                  apiProvider: '',
+                  taskType: '',
+                  recentContext: '',
+                  selectedBiases: [],
+                  customBiases: [],
+                  connections: [],
+                  confidenceLevel: 'medium',
+                  biasPositions: {}
+                });
+                setDemographics({
+                  country: '',
+                  institution: '',
+                  institutionType: '',
+                  role: '',
+                  subjectArea: ''
+                });
+                setCurrentView('welcome');
+              }}
+              className="px-8 py-4 border border-slate-600 rounded-xl hover:bg-slate-700 transition-all font-semibold text-slate-300"
+            >
+              New Mapping
+            </button>
+          </div>
+        </div>
+
+        <div className="text-center bg-slate-900 text-white p-10 rounded-2xl border border-blue-500/50">
+          <div className="font-bold text-2xl text-blue-400 mb-4">Bias Mapping Complete</div>
+          <p className="text-slate-300 text-lg leading-relaxed">
+            <strong>You now have the tools to use AI more critically and responsibly. Remember: Every bias you catch doesn't just help you - it helps create better AI for everyone!</strong>
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-800" style={{ backgroundColor: 'var(--color-background)' }}>
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-5xl font-bold text-slate-100 mb-2">DeBiasMe</h1>
+              <p className="text-blue-300 text-lg">Interactive Bias Mapping for AI Governance</p>
+            </div>
+            <div className="flex gap-3">
+              {[
+                { id: 'welcome', label: 'Welcome', icon: Info },
+                { id: 'setup', label: 'Setup', icon: Settings },
+                { id: 'mapping', label: 'Bias', icon: MapPin },
+                { id: 'analysis', label: 'Mapping', icon: Target },
+                { id: 'audit', label: 'Dashboard', icon: BarChart3 }
+              ].map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setCurrentView(id)}
+                  className={`flex items-center gap-2 px-5 py-3 text-sm rounded-xl transition-all font-medium ${
+                    currentView === id
+                      ? 'bg-blue-600 text-white shadow-lg border border-blue-500'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-800 rounded-3xl p-10 shadow-2xl border border-slate-600" style={{ backgroundColor: 'var(--color-surface)' }}>
+          {currentView === 'welcome' && <WelcomeView />}
+          {currentView === 'setup' && <BiasSetupView />}
+          {currentView === 'mapping' && <MappingView />}
+          {currentView === 'analysis' && <InteractiveBiasCanvas />}
+          {currentView === 'audit' && <AuditView />}
+        </div>
+      </div>
+
+      <style jsx>{`
+        :root {
+          --color-background: #1e293b;
+          --color-surface: #2d3748;
+          --color-text: #f8fafc;
+          --color-primary: #3b82f6;
+          --color-primary-light: #60a5fa;
+          --color-primary-dark: #2563eb;
+          --color-secondary: #94a3b8;
+          --color-success: #10b981;
+          --color-warning: #facc15;
+          --color-warning-bg: rgba(250, 204, 21, 0.3);
+          --color-highlight-yellow: rgba(250, 204, 21, 0.3);
+          --color-highlight-green: rgba(34, 197, 94, 0.3);
+          --color-highlight-text: #facc15;
+          --color-highlight-success: #10b981;
+          --color-statistical: #60a5fa;
+          --color-systemic: #93c5fd;
+          --border-radius: 8px;
+          --spacing-md: 16px;
+          --spacing-lg: 24px;
+          --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default DeBiasMe;
