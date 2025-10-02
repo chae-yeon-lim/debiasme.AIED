@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeBiasMe - Interactive Bias Mapping Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-background: #1e293b;
+            --color-surface: #2d3748;
+            --color-text: #f8fafc;
+            --color-primary: #3b82f6;
+            --color-primary-light: #60a5fa;
+            --color-primary-dark: #2563eb;
+            --color-secondary: #94a3b8;
+            --color-success: #10b981;
+            --color-warning: #facc15;
+            --color-emerald: #10b981;
+            --color-purple: #8b5cf6;
+            --color-amber: #f59e0b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #f1f5f9;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #93c5fd;
+            font-size: 1.125rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.875rem;
+            border-radius: 0.75rem;
+            transition: all 0.3s;
+            font-weight: 500;
+            border: 1px solid #475569;
+            background-color: #475569;
+            color: #cbd5e1;
+            cursor: pointer;
+        }
+
+        .nav-tab:hover {
+            background-color: #334155;
+        }
+
+        .nav-tab.active {
+            background-color: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary-dark);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .main-content {
+            background-color: var(--color-surface);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border: 1px solid #475569;
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-header h2 {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #f1f5f9;
+            margin-bottom: 1rem;
+        }
+
+        .section-header .subtitle {
+            color: #93c5fd;
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .divider {
+            width: 8rem;
+            height: 0.25rem;
+            background-color: var(--color-primary);
+            border-radius: 9999px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background-color: var(--color-surface);
+            padding: 2rem;
+            border-radius: 1rem;
+            border: 1px solid #475569;
+            margin-bottom: 2rem;
+        }
+
+        .info-box {
+            background-color: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-box h4 {
+            color: #93c5fd;
+            margin-bottom: 1rem;
+            font-size: 1.125rem;
+        }
+
+        .info-box p {
+            color: #dbeafe;
+            line-height: 1.6;
+        }
+
+        .steps-container {
+            background-color: #1e293b;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid #475569;
+            margin-bottom: 2rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .step-number {
+            width: 2rem;
+            height: 2rem;
+            background-color: var(--color-primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #cbd5e1;
+            margin-bottom: 0.75rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 1rem;
+            background-color: #334155;
+            border: 1px solid #475569;
+            border-radius: 0.75rem;
+            color: #f1f5f9;
+            font-size: 1rem;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 8rem;
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: white;
+            padding: 1.25rem 2.5rem;
+            border-radius: 1rem;
+            font-weight: 600;
+            font-size: 1.125rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-primary-dark);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-secondary {
+            padding: 1rem 2rem;
+            border: 1px solid #475569;
+            border-radius: 0.75rem;
+            background-color: transparent;
+            color: #cbd5e1;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-secondary:hover {
+            background-color: #334155;
+        }
+
+        .btn-add-custom {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background-color: var(--color-emerald);
+            color: white;
+            font-size: 0.875rem;
+            border-radius: 0.75rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-add-custom:hover {
+            background-color: #059669;
+        }
+
+        .bias-category {
+            margin-bottom: 3rem;
+        }
+
+        .bias-category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .bias-category-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .category-indicator {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+        }
+
+        .bias-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .bias-card {
+            padding: 1.25rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid;
+        }
+
+        .bias-card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .bias-card.custom {
+            border-style: dashed;
+        }
+
+        .bias-card-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .bias-checkbox {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 0.5rem;
+            border: 2px solid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 0.25rem;
+        }
+
+        .bias-checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+
+        .bias-info h5 {
+            color: #f1f5f9;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .bias-info p {
+            color: #cbd5e1;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .custom-badge {
+            display: inline-block;
+            background-color: var(--color-emerald);
+            color: white;
+            font-size: 0.625rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+        }
+
+        .canvas-container {
+            position: relative;
+            background-color: #0f172a;
+            border-radius: 1rem;
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            height: 700px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .canvas-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .category-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid;
+        }
+
+        .category-label {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.125rem;
+        }
+
+        .bias-node {
+            position: absolute;
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            border: 3px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 10;
+            padding: 0.5rem;
+        }
+
+        .bias-node:hover {
+            transform: scale(1.05);
+        }
+
+        .bias-node.selected {
+            border-color: #fbbf24;
+            background-color: #fef3c7 !important;
+            transform: scale(1.1);
+            z-index: 20;
+        }
+
+        .bias-node span {
+            font-weight: bold;
+            font-size: 0.75rem;
+            line-height: 1.2;
+            color: white;
+        }
+
+        .bias-node.selected span {
+            color: #1e293b;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid;
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-weight: bold;
+            font-size: 1.125rem;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--color-surface);
+            border-radius: 1rem;
+            padding: 2.5rem;
+            max-width: 40rem;
+            width: 100%;
+            border: 1px solid #475569;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .confidence-options {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .confidence-option {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2.5rem;
+        }
+
+        .btn-save {
+            flex: 1;
+            background-color: var(--color-emerald);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-save:hover {
+            background-color: #059669;
+        }
+
+        .btn-delete {
+            padding: 1rem 1.5rem;
+            background-color: #dc2626;
+            color: white;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-cancel {
+            padding: 1rem 1.5rem;
+            border: 1px solid #475569;
+            border-radius: 0.75rem;
+            background-color: transparent;
+            color: #cbd5e1;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .notification {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background-color: var(--color-success);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            display: none;
+            z-index: 2000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .notification.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>DeBiasMe</h1>
+                <p>Interactive Bias Mapping for AI Governance</p>
+            </div>
+            <div class="nav-tabs" id="navTabs">
+                <button class="nav-tab active" data-view="welcome">Welcome</button>
+                <button class="nav-tab" data-view="setup">Setup</button>
+                <button class="nav-tab" data-view="mapping">Mapping</button>
+                <button class="nav-tab" data-view="analysis">Network</button>
+                <button class="nav-tab" data-view="dashboard">Dashboard</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Welcome View -->
+            <div id="welcome-view" class="view-section active">
+                <div class="section-header">
+                    <h2>DeBiasMe</h2>
+                    <p class="subtitle">Interactive Bias Mapping Tool</p>
+                    <p>For AIED Governance & Policy Development</p>
+                    <div class="divider"></div>
+                </div>
+
+                <div class="card">
+                    <p style="color: #cbd5e1; margin-bottom: 2rem; line-height: 1.8; font-size: 1.125rem;">
+                        This tool helps map how your thinking patterns interact with AI's limitations - and how together, 
+                        they can amplify biases. By understanding these connections, you contribute to creating more 
+                        equitable AI systems for educational and institutional use.
+                    </p>
+                    
+                    <div class="steps-container">
+                        <h4 style="color: #93c5fd; margin-bottom: 1rem; font-size: 1.125rem;">How It Works</h4>
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div style="flex: 1;">
+                                <h5 style="color: #e2e8f0; margin-bottom: 0.25rem;">Think of your recent AI use</h5>
+                                <p style="color: #94a3b8; font-size: 0.875rem;">Reflect on a specific time you used AI tools.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div style="flex: 1;">
+                                <h5 style="color: #e2e8f0; margin-bottom: 0.25rem;">Select bias types</h5>
+                                <p style="color: #94a3b8; font-size: 0.875rem;">Choose from human, AI, and systemic bias types.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div style="flex: 1;">
+                                <h5 style="color: #e2e8f0; margin-bottom: 0.25rem;">Map connections</h5>
+                                <p style="color: #94a3b8; font-size: 0.875rem;">Connect biases and describe their amplification.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div style="flex: 1;">
+                                <h5 style="color: #e2e8f0; margin-bottom: 0.25rem;">Share insights</h5>
+                                <p style="color: #94a3b8; font-size: 0.875rem;">Submit findings to help improve AI systems.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4 style="font-size: 1.25rem; color: #f1f5f9; margin-bottom: 1.5rem;">Context Information</h4>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Institution Name</label>
+                            <input type="text" id="institution" placeholder="Name of your school/organization">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Institution Type</label>
+                            <select id="institutionType">
+                                <option value="">Select type</option>
+                                <option value="University">University</option>
+                                <option value="Community College">Community College</option>
+                                <option value="K-12 School">K-12 School</option>
+                                <option value="Research Institute">Research Institute</option>
+                                <option value="Corporate">Corporate</option>
+                                <option value="Government">Government</option>
+                                <option value="NGO">NGO</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Country/Region</label>
+                            <input type="text" id="country" placeholder="e.g., United States, Germany">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Role</label>
+                            <select id="role">
+                                <option value="">Select role</option>
+                                <option value="Student">Student</option>
+                                <option value="Educator">Educator</option>
+                                <option value="Researcher">Researcher</option>
+                                <option value="Administrator">Administrator</option>
+                                <option value="Professional">Professional</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <button class="btn-primary" id="startBtn">Start Bias Mapping</button>
+                </div>
+            </div>
+
+            <!-- Setup View -->
+            <div id="setup-view" class="view-section">
+                <div class="info-box">
+                    <h4>Configure Bias Detection Parameters</h4>
+                    <p>Set up your AI interaction context and select bias types for mapping analysis.</p>
+                </div>
+
+                <div class="card">
+                    <h4 style="font-size: 1.125rem; color: #f1f5f9; margin-bottom: 1.5rem;">Interaction Context</h4>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>AI Tool Used</label>
+                            <select id="apiProvider">
+                                <option value="">Select AI tool</option>
+                                <option value="ChatGPT">ChatGPT</option>
+                                <option value="Claude">Claude</option>
+                                <option value="Gemini">Gemini</option>
+                                <option value="Copilot">Copilot</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Task Type</label>
+                            <input type="text" id="taskType" placeholder="e.g., Research, Writing, Analysis">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Context Description</label>
+                        <textarea id="recentContext" placeholder="Describe what you were trying to accomplish with AI..."></textarea>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <button class="btn-primary" id="proceedBtn">Continue to Bias Selection</button>
+                </div>
+            </div>
+
+            <!-- Mapping View -->
+            <div id="mapping-view" class="view-section">
+                <div class="info-box">
+                    <h4>Choose Bias Types</h4>
+                    <p>Select the bias types that affected your AI interaction. You can also add custom biases.</p>
+                </div>
+
+                <div id="biasSelectionContainer"></div>
+
+                <div class="text-center">
+                    <button class="btn-primary" id="buildConnectionsBtn">
+                        Build Connections (<span id="selectedCount">0</span>)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Analysis View -->
+            <div id="analysis-view" class="view-section">
+                <div style="background-color: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 2rem;">
+                    <h3 style="font-weight: 600; color: #c4b5fd; margin-bottom: 0.75rem; font-size: 1.25rem;">
+                        Interactive Bias Network
+                    </h3>
+                    <p style="color: #ddd6fe;">
+                        Click bias nodes to create connections. Click on connection midpoints to add annotations.
+                    </p>
+                </div>
+
+                <div class="canvas-container" id="networkCanvas">
+                    <svg class="canvas-svg" id="connectionsSvg"></svg>
+                    <!-- Connection Legend -->
+                    <div style="position: absolute; bottom: 20px; left: 20px; background-color: rgba(15, 23, 42, 0.9); padding: 1rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.3);">
+                        <h5 style="color: #cbd5e1; margin-bottom: 0.75rem; font-size: 0.875rem; font-weight: 600;">Connection Legend</h5>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <svg width="40" height="20">
+                                    <line x1="0" y1="10" x2="40" y2="10" stroke="#93c5fd" stroke-width="3" stroke-dasharray="8,4"></line>
+                                </svg>
+                                <span style="color: #94a3b8; font-size: 0.75rem;">Not annotated</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <svg width="40" height="20">
+                                    <line x1="0" y1="10" x2="40" y2="10" stroke="#60a5fa" stroke-width="4"></line>
+                                </svg>
+                                <span style="color: #94a3b8; font-size: 0.75rem;">Annotated</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <div style="width: 12px; height: 12px; background-color: #93c5fd; border-radius: 2px;"></div>
+                                    <div style="width: 12px; height: 12px; background-color: #60a5fa; border-radius: 2px;"></div>
+                                    <div style="width: 12px; height: 12px; background-color: #3b82f6; border-radius: 2px;"></div>
+                                </div>
+                                <span style="color: #94a3b8; font-size: 0.75rem;">Low → Med → High</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="selectionNotice" class="info-box" style="background-color: rgba(250, 204, 21, 0.2); border-color: rgba(250, 204, 21, 0.3); display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #fde047; font-weight: 600;">
+                            Selected: <span id="selectedBiasName"></span>
+                        </span>
+                        <button id="cancelSelectionBtn" style="color: #facc15; background: none; border: none; cursor: pointer; font-size: 1.5rem;">×</button>
+                    </div>
+                    <p style="color: #fef08a; margin-top: 0.5rem;">Click another bias node to create a connection.</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card" style="background-color: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.3);">
+                        <div class="stat-value" style="color: #34d399;" id="nodeCount">0</div>
+                        <div class="stat-label" style="color: #6ee7b7;">Bias Nodes</div>
+                    </div>
+                    <div class="stat-card" style="background-color: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.3);">
+                        <div class="stat-value" style="color: #60a5fa;" id="connectionCount">0</div>
+                        <div class="stat-label" style="color: #93c5fd;">Connections</div>
+                    </div>
+                    <div class="stat-card" style="background-color: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.3);">
+                        <div class="stat-value" style="color: #fbbf24;" id="annotatedCount">0</div>
+                        <div class="stat-label" style="color: #fcd34d;">Annotated</div>
+                    </div>
+                </div>
+
+                <!-- Connection Summary Section -->
+                <div class="card" style="background-color: var(--color-surface); margin-top: 2rem;">
+                    <h5 style="font-weight: 600; margin-bottom: 1.5rem; color: #f1f5f9; font-size: 1.25rem;">Your Connections</h5>
+                    <div id="connectionSummary">
+                        <p style="color: #94a3b8;">No connections made yet. Click on bias circles to connect them and explain how they work together.</p>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <button class="btn-primary" id="viewDashboardBtn">View Results Dashboard</button>
+                </div>
+            </div>
+
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="view-section">
+                <div style="background-color: rgba(20, 184, 166, 0.2); border: 1px solid rgba(20, 184, 166, 0.3); padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 2rem;">
+                    <h3 style="font-weight: 600; color: #5eead4; margin-bottom: 0.75rem; font-size: 1.25rem;">
+                        Policy Analytics Dashboard
+                    </h3>
+                    <p style="color: #99f6e4;">
+                        Your bias mapping data is ready for submission. Contribute to institutional AI governance research.
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h4 style="font-size: 1.25rem; color: #f1f5f9; margin-bottom: 2rem;">Your Mapping Summary</h4>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div>
+                            <h5 style="color: #93c5fd; margin-bottom: 1rem;">Context Information</h5>
+                            <div style="color: #cbd5e1; line-height: 2;">
+                                <div>Institution: <span id="summaryInstitution" style="color: #f1f5f9;"></span></div>
+                                <div>Type: <span id="summaryType" style="color: #f1f5f9;"></span></div>
+                                <div>Location: <span id="summaryLocation" style="color: #f1f5f9;"></span></div>
+                                <div>Role: <span id="summaryRole" style="color: #f1f5f9;"></span></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h5 style="color: #93c5fd; margin-bottom: 1rem;">Mapping Statistics</h5>
+                            <div style="color: #cbd5e1; line-height: 2;">
+                                <div>Bias Nodes: <span id="summaryNodes" style="color: #f1f5f9;"></span></div>
+                                <div>Connections: <span id="summaryConnections" style="color: #f1f5f9;"></span></div>
+                                <div>Annotations: <span id="summaryAnnotations" style="color: #f1f5f9;"></span></div>
+                                <div>AI Tool: <span id="summaryTool" style="color: #f1f5f9;"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expert Review Notice -->
+                <div style="background-color: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); padding: 2rem; border-radius: 1rem; margin-bottom: 2rem;">
+                    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                        <div style="flex-shrink: 0;">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M12 6v6l4 2"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 style="font-weight: 600; color: #93c5fd; margin-bottom: 1rem; font-size: 1.125rem;">Expert Review Process</h4>
+                            <p style="color: #dbeafe; line-height: 1.6;">
+                                Institutional experts will review aggregated data to identify patterns and inform policy decisions. 
+                                Your contribution helps create more equitable AI systems for educational use.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4 style="font-size: 1.25rem; color: #f1f5f9; margin-bottom: 1.5rem;">Data Submission</h4>
+                    <p style="color: #cbd5e1; margin-bottom: 2rem; font-size: 1.125rem; line-height: 1.8;">
+                        Your anonymized bias mapping contributes to institutional AI governance research. 
+                        The data includes bias connections, confidence levels, and demographic context for policy analysis.
+                    </p>
+                    
+                    <div style="display: flex; gap: 1.5rem;">
+                        <button class="btn-primary" id="submitBtn">Submit to Research Database</button>
+                        <button class="btn-secondary" id="resetBtn">Start New Mapping</button>
+                    </div>
+                </div>
+
+                <!-- Final Message -->
+                <div style="text-align: center; background-color: #0f172a; padding: 2.5rem; border-radius: 1rem; border: 2px solid rgba(59, 130, 246, 0.5); margin-top: 2rem;">
+                    <div style="font-weight: bold; font-size: 1.5rem; color: #60a5fa; margin-bottom: 1rem;">Bias Mapping Complete</div>
+                    <p style="color: #cbd5e1; font-size: 1.125rem; line-height: 1.8; max-width: 800px; margin: 0 auto;">
+                        <strong>You now have the tools to use AI more critically and responsibly. Remember: Every bias you catch doesn't just help you - it helps create better AI for everyone.</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Bias Modal -->
+    <div id="customBiasModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Add Custom Bias Type</h4>
+            </div>
+            
+            <div class="form-group">
+                <label>Bias Name</label>
+                <input type="text" id="customBiasName" placeholder="Enter bias name">
+            </div>
+            
+            <div class="form-group">
+                <label>Category</label>
+                <select id="customBiasCategory">
+                    <option value="Human">Human</option>
+                    <option value="AI (Statistical & Computational)">AI (Statistical & Computational)</option>
+                    <option value="Systemic">Systemic</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="customBiasDescription" placeholder="Describe this bias type" style="min-height: 6rem;"></textarea>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn-save" id="saveCustomBiasBtn">Add Bias</button>
+                <button class="btn-cancel" id="cancelCustomBiasBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Edit Modal -->
+    <div id="connectionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Annotate Connection</h4>
+            </div>
+            
+            <div style="background-color: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 2rem;">
+                <p style="color: #e2e8f0; font-size: 1.125rem;">
+                    <span id="connectionFrom" style="font-weight: bold; color: #93c5fd;"></span>
+                    <span style="margin: 0 1rem; color: #94a3b8;">↔</span>
+                    <span id="connectionTo" style="font-weight: bold; color: #67e8f9;"></span>
+                </p>
+            </div>
+            
+            <div class="form-group">
+                <label>Connection Strength</label>
+                <div class="confidence-options">
+                    <label class="confidence-option">
+                        <input type="radio" name="modalConfidence" value="low">
+                        <span>Low</span>
+                    </label>
+                    <label class="confidence-option">
+                        <input type="radio" name="modalConfidence" value="medium" checked>
+                        <span>Medium</span>
+                    </label>
+                    <label class="confidence-option">
+                        <input type="radio" name="modalConfidence" value="high">
+                        <span>High</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Amplification Pattern</label>
+                <textarea id="connectionAnnotation" placeholder="Describe how these biases amplify each other..." style="min-height: 8rem;"></textarea>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn-save" id="saveConnectionBtn">Save Annotation</button>
+                <button class="btn-delete" id="deleteConnectionBtn">Delete</button>
+                <button class="btn-cancel" id="cancelConnectionBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification">
+        <span id="notificationText">Success!</span>
+    </div>
+
+    <!-- Hidden Netlify Form -->
+    <form name="bias-mapping" netlify netlify-honeypot="bot-field" hidden>
+        <input type="text" name="timestamp">
+        <input type="text" name="institution">
+        <input type="text" name="institutionType">
+        <input type="text" name="country">
+        <input type="text" name="role">
+        <input type="text" name="apiProvider">
+        <input type="text" name="taskType">
+        <textarea name="context"></textarea>
+        <textarea name="biases"></textarea>
+        <textarea name="connections"></textarea>
+        <textarea name="customBiases"></textarea>
+    </form>
+
+    <script>
+        // Global state
+        let appState = {
+            demographics: {},
+            context: {},
+            selectedBiases: [],
+            customBiases: [],
+            connections: [],
+            selectedForConnection: null,
+            editingConnection: null
+        };
+
+        // Bias taxonomy with all 18 types
+        const biasTypes = {
+            'Confirmation': { 
+                category: 'Human', 
+                description: 'Seeking information that confirms existing beliefs while ignoring contradictory evidence'
+            },
+            'Anchoring': { 
+                category: 'Human', 
+                description: 'Over-relying on first piece of information received'
+            },
+            'Automation': { 
+                category: 'Human', 
+                description: 'Over-trusting AI outputs without critical evaluation'
+            },
+            'Availability': { 
+                category: 'Human', 
+                description: 'Judging probability by easily recalled examples'
+            },
+            'Anthropomorphism': { 
+                category: 'Human', 
+                description: 'Attributing human characteristics to AI systems'
+            },
+            'Overconfidence': { 
+                category: 'Human', 
+                description: 'Overestimating accuracy of beliefs when using AI'
+            },
+            'Selection': { 
+                category: 'AI (Statistical & Computational)', 
+                description: 'Non-representative sampling in training data'
+            },
+            'Representation': { 
+                category: 'AI (Statistical & Computational)', 
+                description: 'Underrepresentation of certain groups in data'
+            },
+            'Measurement': { 
+                category: 'AI (Statistical & Computational)', 
+                description: 'Systematic errors in data collection processes'
+            },
+            'Temporal': { 
+                category: 'AI (Statistical & Computational)', 
+                description: 'Outdated training data affecting current predictions'
+            },
+            'Language': { 
+                category: 'AI (Statistical & Computational)', 
+                description: 'Favoring dominant languages and dialects'
+            },
+            'Cultural Default': { 
+                category: 'AI (Statistical & Computational)', 
+                description: 'Western/English-centric assumptions in outputs'
+            },
+            'Historical': { 
+                category: 'Systemic', 
+                description: 'Past inequities encoded in data and perpetuated'
+            },
+            'Institutional': { 
+                category: 'Systemic', 
+                description: 'Organizational structures that create unfair advantages'
+            },
+            'Geographic': { 
+                category: 'Systemic', 
+                description: 'Urban/regional perspective dominance'
+            },
+            'Socioeconomic': { 
+                category: 'Systemic', 
+                description: 'Class-based assumptions and exclusions'
+            },
+            'Gender': { 
+                category: 'Systemic', 
+                description: 'Gender role stereotypes and exclusions'
+            },
+            'Racial': { 
+                category: 'Systemic', 
+                description: 'Racial stereotypes and discrimination patterns'
+            }
+        };
+
+        const categoryColors = {
+            'Human': '#10b981',
+            'AI (Statistical & Computational)': '#8b5cf6',
+            'Systemic': '#f59e0b'
+        };
+
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            // Set up navigation
+            const navTabs = document.querySelectorAll('.nav-tab');
+            navTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    switchView(this.dataset.view);
+                });
+            });
+
+            // Set up button handlers
+            document.getElementById('startBtn').addEventListener('click', () => switchView('setup'));
+            document.getElementById('proceedBtn').addEventListener('click', proceedToMapping);
+            document.getElementById('buildConnectionsBtn').addEventListener('click', () => {
+                if (appState.selectedBiases.length > 0) {
+                    switchView('analysis');
+                } else {
+                    alert('Please select at least one bias');
+                }
+            });
+            document.getElementById('viewDashboardBtn').addEventListener('click', () => switchView('dashboard'));
+            document.getElementById('submitBtn').addEventListener('click', submitToNetlify);
+            document.getElementById('resetBtn').addEventListener('click', resetAll);
+            document.getElementById('cancelSelectionBtn').addEventListener('click', cancelSelection);
+            
+            // Modal handlers
+            document.getElementById('saveCustomBiasBtn').addEventListener('click', saveCustomBias);
+            document.getElementById('cancelCustomBiasBtn').addEventListener('click', () => {
+                document.getElementById('customBiasModal').classList.remove('active');
+            });
+            document.getElementById('saveConnectionBtn').addEventListener('click', saveConnection);
+            document.getElementById('deleteConnectionBtn').addEventListener('click', deleteConnection);
+            document.getElementById('cancelConnectionBtn').addEventListener('click', () => {
+                document.getElementById('connectionModal').classList.remove('active');
+            });
+        }
+
+        function switchView(viewName) {
+            // Hide all views
+            document.querySelectorAll('.view-section').forEach(view => {
+                view.classList.remove('active');
+            });
+            
+            // Show selected view
+            const targetView = document.getElementById(viewName + '-view');
+            if (targetView) {
+                targetView.classList.add('active');
+            }
+            
+            // Update nav tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.view === viewName) {
+                    tab.classList.add('active');
+                }
+            });
+            
+            // Initialize view-specific content
+            if (viewName === 'mapping') {
+                initializeBiasSelection();
+            } else if (viewName === 'analysis') {
+                initializeNetwork();
+            } else if (viewName === 'dashboard') {
+                updateDashboard();
+            }
+        }
+
+        function proceedToMapping() {
+            const apiProvider = document.getElementById('apiProvider').value;
+            if (!apiProvider) {
+                alert('Please select an AI tool');
+                return;
+            }
+            
+            appState.context = {
+                apiProvider: apiProvider,
+                taskType: document.getElementById('taskType').value,
+                recentContext: document.getElementById('recentContext').value
+            };
+            
+            switchView('mapping');
+        }
+
+        function initializeBiasSelection() {
+            const container = document.getElementById('biasSelectionContainer');
+            const categories = ['Human', 'AI (Statistical & Computational)', 'Systemic'];
+            
+            container.innerHTML = categories.map(category => {
+                const categoryBiases = Object.entries(biasTypes).filter(([_, info]) => info.category === category);
+                const customCategoryBiases = appState.customBiases.filter(bias => bias.category === category);
+                const color = categoryColors[category];
+                
+                return `
+                    <div class="bias-category">
+                        <div class="bias-category-header">
+                            <div class="bias-category-title">
+                                <div class="category-indicator" style="background-color: ${color}"></div>
+                                ${category} (${categoryBiases.length + customCategoryBiases.length})
+                            </div>
+                            <button class="btn-add-custom" onclick="openCustomBiasModal('${category}')">
+                                + Add Custom
+                            </button>
+                        </div>
+                        <div class="bias-grid">
+                            ${categoryBiases.map(([name, info]) => `
+                                <div class="bias-card ${appState.selectedBiases.includes(name) ? 'selected' : ''}" 
+                                     style="background-color: ${appState.selectedBiases.includes(name) ? color + '40' : color + '26'};
+                                            border-color: ${appState.selectedBiases.includes(name) ? color : color + '4D'}"
+                                     onclick="toggleBias('${name}')">
+                                    <div class="bias-card-content">
+                                        <div class="bias-checkbox ${appState.selectedBiases.includes(name) ? 'checked' : ''}"
+                                             style="background-color: ${appState.selectedBiases.includes(name) ? color : 'transparent'};
+                                                    border-color: ${color}">
+                                        </div>
+                                        <div class="bias-info">
+                                            <h5>${name}</h5>
+                                            <p>${info.description}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            ${customCategoryBiases.map(bias => `
+                                <div class="bias-card custom ${appState.selectedBiases.includes(bias.name) ? 'selected' : ''}" 
+                                     style="background-color: ${appState.selectedBiases.includes(bias.name) ? '#10b98140' : '#10b98126'};
+                                            border-color: ${appState.selectedBiases.includes(bias.name) ? '#10b981' : '#10b9814D'}"
+                                     onclick="toggleBias('${bias.name}')">
+                                    <div class="bias-card-content">
+                                        <div class="bias-checkbox ${appState.selectedBiases.includes(bias.name) ? 'checked' : ''}"
+                                             style="background-color: ${appState.selectedBiases.includes(bias.name) ? '#10b981' : 'transparent'};
+                                                    border-color: #10b981">
+                                        </div>
+                                        <div class="bias-info">
+                                            <span class="custom-badge">CUSTOM</span>
+                                            <h5>${bias.name}</h5>
+                                            <p>${bias.description}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            updateSelectedCount();
+        }
+
+        // Make functions globally accessible
+        window.toggleBias = function(biasName) {
+            const index = appState.selectedBiases.indexOf(biasName);
+            if (index > -1) {
+                appState.selectedBiases.splice(index, 1);
+            } else {
+                appState.selectedBiases.push(biasName);
+            }
+            initializeBiasSelection();
+        };
+
+        window.openCustomBiasModal = function(category) {
+            document.getElementById('customBiasCategory').value = category;
+            document.getElementById('customBiasModal').classList.add('active');
+        };
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = appState.selectedBiases.length;
+        }
+
+        function saveCustomBias() {
+            const name = document.getElementById('customBiasName').value.trim();
+            const category = document.getElementById('customBiasCategory').value;
+            const description = document.getElementById('customBiasDescription').value.trim();
+            
+            if (!name || !description) {
+                alert('Please provide both name and description');
+                return;
+            }
+            
+            appState.customBiases.push({ name, category, description });
+            
+            document.getElementById('customBiasModal').classList.remove('active');
+            document.getElementById('customBiasName').value = '';
+            document.getElementById('customBiasDescription').value = '';
+            
+            initializeBiasSelection();
+        }
+
+        function initializeNetwork() {
+            const canvas = document.getElementById('networkCanvas');
+            const svg = document.getElementById('connectionsSvg');
+            
+            // Clear existing content
+            canvas.querySelectorAll('.category-circle, .category-label, .bias-node').forEach(el => el.remove());
+            svg.innerHTML = '';
+            
+            // Category centers
+            const centers = {
+                'Human': { x: 200, y: 200 },
+                'AI (Statistical & Computational)': { x: 500, y: 200 },
+                'Systemic': { x: 350, y: 400 }
+            };
+            
+            // Create visualization
+            Object.entries(centers).forEach(([category, center]) => {
+                const categoryBiases = appState.selectedBiases.filter(bias => {
+                    const standardBias = biasTypes[bias];
+                    const customBias = appState.customBiases.find(cb => cb.name === bias);
+                    return (standardBias && standardBias.category === category) || 
+                           (customBias && customBias.category === category);
+                });
+                
+                if (categoryBiases.length === 0) return;
+                
+                const radius = Math.max(100, categoryBiases.length * 18);
+                const color = categoryColors[category];
+                
+                // Create circle
+                const circle = document.createElement('div');
+                circle.className = 'category-circle';
+                circle.style.left = (center.x - radius) + 'px';
+                circle.style.top = (center.y - radius) + 'px';
+                circle.style.width = (radius * 2) + 'px';
+                circle.style.height = (radius * 2) + 'px';
+                circle.style.backgroundColor = color + '26';
+                circle.style.borderColor = color + '4D';
+                canvas.appendChild(circle);
+                
+                // Create label
+                const label = document.createElement('div');
+                label.className = 'category-label';
+                label.textContent = category;
+                label.style.left = (center.x - 60) + 'px';
+                label.style.top = (center.y - radius - 35) + 'px';
+                label.style.color = color;
+                canvas.appendChild(label);
+                
+                // Create bias nodes
+                categoryBiases.forEach((bias, index) => {
+                    const angle = (index / categoryBiases.length) * 2 * Math.PI;
+                    const x = center.x + radius * Math.cos(angle);
+                    const y = center.y + radius * Math.sin(angle);
+                    
+                    const node = document.createElement('div');
+                    node.className = 'bias-node';
+                    node.id = 'node-' + bias.replace(/\s+/g, '-');
+                    node.style.left = (x - 48) + 'px';
+                    node.style.top = (y - 48) + 'px';
+                    node.style.backgroundColor = color;
+                    node.onclick = () => handleBiasClick(bias);
+                    
+                    const span = document.createElement('span');
+                    span.textContent = bias.length > 14 ? bias.substring(0, 14) + '...' : bias;
+                    node.appendChild(span);
+                    
+                    canvas.appendChild(node);
+                });
+            });
+            
+            updateConnections();
+            updateStats();
+        }
+
+        function handleBiasClick(biasName) {
+            if (appState.selectedForConnection) {
+                if (appState.selectedForConnection !== biasName) {
+                    // Create connection
+                    const connection = {
+                        id: `${appState.selectedForConnection}-${biasName}`,
+                        from: appState.selectedForConnection,
+                        to: biasName,
+                        confidence: 'medium',
+                        annotation: ''
+                    };
+                    
+                    // Check if connection already exists
+                    const exists = appState.connections.some(c => 
+                        (c.from === connection.from && c.to === connection.to) ||
+                        (c.from === connection.to && c.to === connection.from)
+                    );
+                    
+                    if (!exists) {
+                        appState.connections.push(connection);
+                        openConnectionModal(connection);
+                    }
+                }
+                cancelSelection();
+            } else {
+                appState.selectedForConnection = biasName;
+                document.querySelectorAll('.bias-node').forEach(node => {
+                    node.classList.remove('selected');
+                });
+                document.getElementById('node-' + biasName.replace(/\s+/g, '-')).classList.add('selected');
+                document.getElementById('selectedBiasName').textContent = biasName;
+                document.getElementById('selectionNotice').style.display = 'block';
+            }
+            
+            updateConnections();
+            updateStats();
+        }
+
+        function cancelSelection() {
+            appState.selectedForConnection = null;
+            document.querySelectorAll('.bias-node').forEach(node => {
+                node.classList.remove('selected');
+            });
+            document.getElementById('selectionNotice').style.display = 'none';
+        }
+
+        function updateConnections() {
+            const svg = document.getElementById('connectionsSvg');
+            svg.innerHTML = '';
+            
+            appState.connections.forEach(conn => {
+                const fromNode = document.getElementById('node-' + conn.from.replace(/\s+/g, '-'));
+                const toNode = document.getElementById('node-' + conn.to.replace(/\s+/g, '-'));
+                
+                if (!fromNode || !toNode) return;
+                
+                const fromRect = fromNode.getBoundingClientRect();
+                const toRect = toNode.getBoundingClientRect();
+                const canvasRect = svg.parentElement.getBoundingClientRect();
+                
+                const x1 = fromRect.left + fromRect.width/2 - canvasRect.left;
+                const y1 = fromRect.top + fromRect.height/2 - canvasRect.top;
+                const x2 = toRect.left + toRect.width/2 - canvasRect.left;
+                const y2 = toRect.top + toRect.height/2 - canvasRect.top;
+                
+                const colors = { high: '#3b82f6', medium: '#60a5fa', low: '#93c5fd' };
+                
+                // Create line
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', colors[conn.confidence]);
+                line.setAttribute('stroke-width', conn.annotation ? 4 : 3);
+                line.setAttribute('stroke-dasharray', conn.annotation ? '0' : '8,4');
+                svg.appendChild(line);
+                
+                // Create midpoint circle
+                const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
+                
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', midX);
+                circle.setAttribute('cy', midY);
+                circle.setAttribute('r', 14);
+                circle.setAttribute('fill', conn.annotation ? '#10b981' : '#f59e0b');
+                circle.style.cursor = 'pointer';
+                circle.style.pointerEvents = 'auto';
+                circle.onclick = () => openConnectionModal(conn);
+                svg.appendChild(circle);
+                
+                // Add icon (check or pencil)
+                const iconGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                iconGroup.setAttribute('transform', `translate(${midX}, ${midY})`);
+                iconGroup.style.pointerEvents = 'none';
+                
+                if (conn.annotation) {
+                    // Check mark icon
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', 'M-6 -2 L-2 2 L6 -6');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('stroke', 'white');
+                    path.setAttribute('stroke-width', '2');
+                    path.setAttribute('stroke-linecap', 'round');
+                    path.setAttribute('stroke-linejoin', 'round');
+                    iconGroup.appendChild(path);
+                } else {
+                    // Pencil icon
+                    const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path1.setAttribute('d', 'M-6 3 L-6 6 L-3 6 L5 -2 L2 -5 L-6 3 Z');
+                    path1.setAttribute('fill', 'white');
+                    path1.setAttribute('stroke', 'white');
+                    path1.setAttribute('stroke-width', '0.5');
+                    
+                    const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path2.setAttribute('d', 'M2 -5 L5 -2');
+                    path2.setAttribute('stroke', 'white');
+                    path2.setAttribute('stroke-width', '2');
+                    path2.setAttribute('stroke-linecap', 'round');
+                    
+                    iconGroup.appendChild(path1);
+                    iconGroup.appendChild(path2);
+                }
+                
+                svg.appendChild(iconGroup);
+            });
+        }
+
+        function openConnectionModal(connection) {
+            appState.editingConnection = connection;
+            document.getElementById('connectionFrom').textContent = connection.from;
+            document.getElementById('connectionTo').textContent = connection.to;
+            document.getElementById('connectionAnnotation').value = connection.annotation || '';
+            document.querySelector(`input[name="modalConfidence"][value="${connection.confidence}"]`).checked = true;
+            document.getElementById('connectionModal').classList.add('active');
+        }
+
+        function saveConnection() {
+            if (appState.editingConnection) {
+                appState.editingConnection.annotation = document.getElementById('connectionAnnotation').value;
+                appState.editingConnection.confidence = document.querySelector('input[name="modalConfidence"]:checked').value;
+                document.getElementById('connectionModal').classList.remove('active');
+                updateConnections();
+                updateStats();
+            }
+        }
+
+        function deleteConnection() {
+            if (appState.editingConnection) {
+                appState.connections = appState.connections.filter(c => c.id !== appState.editingConnection.id);
+                document.getElementById('connectionModal').classList.remove('active');
+                updateConnections();
+                updateStats();
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('nodeCount').textContent = appState.selectedBiases.length;
+            document.getElementById('connectionCount').textContent = appState.connections.length;
+            document.getElementById('annotatedCount').textContent = appState.connections.filter(c => c.annotation).length;
+            
+            // Update connection summary
+            const summaryContainer = document.getElementById('connectionSummary');
+            if (summaryContainer) {
+                if (appState.connections.length === 0) {
+                    summaryContainer.innerHTML = '<p style="color: #94a3b8;">No connections made yet. Click on bias circles to connect them and explain how they work together.</p>';
+                } else {
+                    summaryContainer.innerHTML = '<div style="display: flex; flex-direction: column; gap: 1rem;">' + 
+                        appState.connections.map(conn => {
+                            const confidenceColors = {
+                                'high': { bg: '#2563eb', text: 'white' },
+                                'medium': { bg: '#3b82f6', text: 'white' },
+                                'low': { bg: '#60a5fa', text: 'white' }
+                            };
+                            const color = confidenceColors[conn.confidence] || confidenceColors.medium;
+                            
+                            return `
+                                <div style="background-color: #1e293b; padding: 1.5rem; border-radius: 0.75rem; border: 1px solid #334155;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                        <div style="font-weight: 600; color: #f1f5f9;">
+                                            ${conn.from} ↔ ${conn.to}
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                            <div style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: bold; background-color: ${color.bg}; color: ${color.text};">
+                                                ${conn.confidence} confidence
+                                            </div>
+                                            ${conn.annotation ? 
+                                                '<div style="width: 0.75rem; height: 0.75rem; background-color: #10b981; border-radius: 50%;"></div>' : 
+                                                ''}
+                                        </div>
+                                    </div>
+                                    ${conn.annotation ? 
+                                        `<div style="font-size: 0.875rem; color: #cbd5e1; font-style: italic; background-color: #334155; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #10b981;">
+                                            "${conn.annotation}"
+                                        </div>` : 
+                                        '<div style="font-size: 0.875rem; color: #94a3b8; font-style: italic;">No annotation added yet - click the connection to add details</div>'}
+                                </div>
+                            `;
+                        }).join('') + 
+                        '</div>';
+                }
+            }
+        }
+
+        function updateDashboard() {
+            appState.demographics = {
+                institution: document.getElementById('institution').value,
+                institutionType: document.getElementById('institutionType').value,
+                country: document.getElementById('country').value,
+                role: document.getElementById('role').value
+            };
+            
+            document.getElementById('summaryInstitution').textContent = appState.demographics.institution || 'Not specified';
+            document.getElementById('summaryType').textContent = appState.demographics.institutionType || 'Not specified';
+            document.getElementById('summaryLocation').textContent = appState.demographics.country || 'Not specified';
+            document.getElementById('summaryRole').textContent = appState.demographics.role || 'Not specified';
+            
+            document.getElementById('summaryNodes').textContent = appState.selectedBiases.length;
+            document.getElementById('summaryConnections').textContent = appState.connections.length;
+            document.getElementById('summaryAnnotations').textContent = appState.connections.filter(c => c.annotation).length;
+            document.getElementById('summaryTool').textContent = appState.context.apiProvider || 'Not specified';
+        }
+
+        function submitToNetlify() {
+            updateDashboard();
+            
+            const formData = new FormData();
+            formData.append('form-name', 'bias-mapping');
+            formData.append('timestamp', new Date().toISOString());
+            formData.append('institution', appState.demographics.institution);
+            formData.append('institutionType', appState.demographics.institutionType);
+            formData.append('country', appState.demographics.country);
+            formData.append('role', appState.demographics.role);
+            formData.append('apiProvider', appState.context.apiProvider);
+            formData.append('taskType', appState.context.taskType);
+            formData.append('context', appState.context.recentContext);
+            formData.append('biases', JSON.stringify(appState.selectedBiases));
+            formData.append('connections', JSON.stringify(appState.connections));
+            formData.append('customBiases', JSON.stringify(appState.customBiases));
+            
+            fetch('/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(formData).toString()
+            })
+            .then(() => showNotification('Data submitted successfully!'))
+            .catch(() => showNotification('Error submitting data'));
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            document.getElementById('notificationText').textContent = message;
+            notification.classList.add('active');
+            setTimeout(() => notification.classList.remove('active'), 3000);
+        }
+
+        function resetAll() {
+            appState = {
+                demographics: {},
+                context: {},
+                selectedBiases: [],
+                customBiases: [],
+                connections: [],
+                selectedForConnection: null,
+                editingConnection: null
+            };
+            
+            document.getElementById('institution').value = '';
+            document.getElementById('institutionType').value = '';
+            document.getElementById('country').value = '';
+            document.getElementById('role').value = '';
+            document.getElementById('apiProvider').value = '';
+            document.getElementById('taskType').value = '';
+            document.getElementById('recentContext').value = '';
+            
+            switchView('welcome');
+        }
+    </script>
+</body>
+</html>
