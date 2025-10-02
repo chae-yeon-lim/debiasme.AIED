@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <form name="bias-mapping" netlify method="POST">
+        <input type="text" name="timestamp" />
+        <input type="text" name="institution" />
+        <input type="text" name="institutionType" />
+        <input type="text" name="country" />
+        <input type="text" name="role" />
+        <input type="text" name="apiProvider" />
+        <input type="text" name="taskType" />
+        <textarea name="context"></textarea>
+        <textarea name="biases"></textarea>
+        <textarea name="connections"></textarea>
+        <textarea name="customBiases"></textarea>
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>
